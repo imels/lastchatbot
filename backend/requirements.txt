@@ -1,0 +1,13 @@
+fastapi
+faiss-cpu==1.8.0.post1
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+pydantic==2.9.1
+passlib[bcrypt]==1.7.4
+motor==3.5.1
+PyJWT==2.9.0
+python-jose==3.3.0
+requests==2.32.3
+faiss-cpu==1.8.0.post1
+numpy==1.26.4
+pypdf==4.3.1
