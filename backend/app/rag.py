@@ -16,7 +16,7 @@ TOP_K = int(os.getenv("TOP_K", "6"))
 os.makedirs(FAISS_DIR, exist_ok=True)
 
 if not GOOGLE_API_KEY:
-    raise ValueError("❌ GOOGLE_API_KEY bulunamadı! Lütfen .env dosyasını kontrol et.")
+    raise ValueError(" GOOGLE_API_KEY bulunamadı! Lütfen .env dosyasını kontrol et.")
 
 def _split_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> List[str]:
     chunks, start, n = [], 0, len(text)
@@ -39,27 +39,27 @@ def embed_texts(texts: List[str]) -> np.ndarray:
 
     for t in texts:
         payload = {"model": EMBED_MODEL, "content": {"parts": [{"text": t}]}}
-        print("📤 Embedding payload:", payload)  # Log payload
+        print(" Embedding payload:", payload)  # Log payload
 
         try:
             r = requests.post(url, json=payload, timeout=60, verify=False)
             r.raise_for_status()
             data = r.json()
-            print("📥 Embedding response keys:", list(data.keys()))  # Log yanıt anahtarları
+            print("Embedding response keys:", list(data.keys()))  # Log yanıt anahtarları
 
             if "embedding" not in data or "values" not in data["embedding"]:
-                print("❌ Embedding verisi yok!", data)
+                print(" Embedding verisi yok!", data)
                 raise ValueError("Embedding API yanıtı beklenmedik formatta")
 
             vec = data["embedding"]["values"]
             vecs.append(vec)
 
         except requests.exceptions.HTTPError as e:
-            print(f"❌ HTTP Error: {e}, Response: {r.text}")
+            print(f" HTTP Error: {e}, Response: {r.text}")
             raise
 
         except Exception as e:
-            print(f"❌ Genel Hata: {e}")
+            print(f" Genel Hata: {e}")
             raise
 
     return np.array(vecs, dtype="float32")
