@@ -4,11 +4,11 @@ from typing import Optional, List
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    name: str   # sadece register için gerekli
+    name: str   
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str   # login için sadece email + password yeter
+    password: str   
 
 class TokenOut(BaseModel):
     access_token: str

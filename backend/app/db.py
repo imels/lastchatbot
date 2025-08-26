@@ -14,7 +14,7 @@ sessions_col = db["sessions"]
 messages_col = db["messages"]
 faqs_col = db["faqs"]
 chunks_col = db["chunks"]
-pdfs_col = db["pdfs"]  # PDF dosyaları için
+pdfs_col = db["pdfs"]  
 
 # Dokümanı JSON uyumlu hale getirme
 def serialize_doc(doc):

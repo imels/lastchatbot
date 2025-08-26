@@ -26,7 +26,7 @@ async def register(user: UserCreate):
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(user: UserLogin):  # ✅ sadece email + password
+async def login(user: UserLogin): 
     found = await users_col.find_one({"email": user.email})
     if not found or not verify_password(user.password, found["password"]):
         raise HTTPException(401, "Invalid credentials")

@@ -1,3 +1,5 @@
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from bson import ObjectId
@@ -5,18 +7,18 @@ from dotenv import load_dotenv
 from datetime import datetime
 import os
 
-from app.db import sessions_col, messages_col, chunks_col, pdfs_col
-from app.auth import router as auth_router, get_current_user
-from app.faqs import router as faqs_router
-from app.models import MessageIn
-from app.rag import pdf_to_chunks, build_faiss_for_session, retrieve
-from app.llm import chat_completion
+from .db import sessions_col, messages_col, chunks_col, pdfs_col
+from .auth import router as auth_router, get_current_user
+from .faqs import router as faqs_router
+from .models import MessageIn
+from .rag import pdf_to_chunks, build_faiss_for_session, retrieve
+from .llm import chat_completion
 
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
-    raise ValueError("❌ GOOGLE_API_KEY bulunamadı! Lütfen .env dosyasını kontrol et.")
+    raise ValueError("GOOGLE_API_KEY bulunamadı! Lütfen .env dosyasını kontrol et.")
 
 # -----------------------------
 # FastAPI & CORS
@@ -24,13 +26,14 @@ if not GOOGLE_API_KEY:
 app = FastAPI(title="PDF RAG Chatbot")
 
 origins = [
+    "http://localhost",
+    "http://localhost:3000",
     "http://localhost:5173",
-    "http://127.0.0.1:5173"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -185,6 +188,7 @@ async def chat_ask(payload: MessageIn, user=Depends(get_current_user)):
     if not ses:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    # Kullanıcı mesajını kaydet
     umsg = {
         "session_id": payload.session_id,
         "user_id": str(user["_id"]),
@@ -194,10 +198,12 @@ async def chat_ask(payload: MessageIn, user=Depends(get_current_user)):
     }
     await messages_col.insert_one(umsg)
 
+    # Geçmiş mesajlar
     history_messages = []
     async for m in messages_col.find({"session_id": payload.session_id}).sort("created_at", 1):
         history_messages.append({"role": m["role"], "content": m["content"]})
-    
+
+    # FAISS retrieval
     idxs = retrieve(payload.session_id, payload.content)
     ctx_texts = []
     for rank, i in enumerate(idxs, start=1):
@@ -206,24 +212,19 @@ async def chat_ask(payload: MessageIn, user=Depends(get_current_user)):
             ctx_texts.append(f"[Chunk #{rank}]\n{meta['text']}")
 
     context_text = "\n\n".join(ctx_texts)
-    
+    prompt_with_context = payload.content
     if context_text:
-        prompt_with_context = f"PDF'den gelen bağlam:\n\n{context_text}\n\nSoru: {payload.content}\n\nTalimat: Sadece soruyu bağlamdaki bilgilere dayanarak cevapla. Cevabın kısa ve öz olsun. Gereksiz detaylardan kaçın. Eğer bağlamda cevap yoksa, 'Üzgünüm, bu konuyla ilgili bilgi bulamadım.' de."
-    else:
-        prompt_with_context = payload.content
+        prompt_with_context = f"PDF'den gelen bağlam:\n\n{context_text}\n\nSoru: {payload.content}\n\nTalimat: Sadece bağlamdaki bilgilere dayanarak cevapla. Cevabın kısa ve öz olsun. Eğer bağlam yoksa, 'Üzgünüm, bu konuyla ilgili bilgi bulamadım.' de."
 
-    messages = history_messages[:-1]
-    messages.append({"role": "user", "content": prompt_with_context})
-    
+    messages = history_messages + [{"role": "user", "content": prompt_with_context}]
     answer = chat_completion(messages)
 
-    amsg = {
+    await messages_col.insert_one({
         "session_id": payload.session_id,
         "user_id": str(user["_id"]),
         "role": "assistant",
         "content": answer,
         "created_at": datetime.utcnow(),
-    }
-    await messages_col.insert_one(amsg)
+    })
 
     return {"answer": answer, "contexts": [{"rank": r+1, "chunk_index": i} for r, i in enumerate(idxs)]}

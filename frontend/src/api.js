@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000"; // local backend
+const API_URL = "http://127.0.0.1:8000"; // Backend URL
 
 export const api = async (endpoint, options = {}) => {
   try {
